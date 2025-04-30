@@ -1,24 +1,28 @@
+import pesapalWebhookRoutes from "./routes/pesapalWebhook.js";
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+require("dotenv").config();
 
-const app = express(); // define the Express app before using it
+// Route imports
+const movieRoutes = require("./routes/movies");
 const tmdbRoutes = require("./routes/tmdbRoutes");
-app.use("/api/movies", tmdbRoutes); // this adds to /api/movies/genre/:id
+const pesapalRoutes = require("./routes/pesapal");
+
+const app = express();
+
+
+app.use("/api/pesapal-webhook", pesapalWebhookRoutes);
 
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-const movieRoutes = require("./routes/movies");
+// API Routes
 app.use("/api", movieRoutes);
-
-// ✅ FIXED: Only declare PORT once
-const PORT = process.env.PORT || 5000;
-
-// Start server
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.use("/api/movies", tmdbRoutes);
+app.use("/api/payments", pesapalRoutes);
 
 // MongoDB Connection
 mongoose
@@ -37,7 +41,11 @@ mongoose
     console.error("❌ MongoDB Error:", err.message);
   });
 
-// Example route
+// Example root route
 app.get("/", (req, res) => {
   res.send("API is working!");
 });
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
