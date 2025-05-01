@@ -1,4 +1,6 @@
-const express = require("express");
+// routes/movies.js
+import express from "express";
+
 const router = express.Router();
 
 const newlyReleasedMovies = [
@@ -11,4 +13,4 @@ router.get("/movies", (req, res) => {
   res.json(newlyReleasedMovies); // Sends the movie list with title and imageUrl
 });
 
-module.exports = router;
+export default router;

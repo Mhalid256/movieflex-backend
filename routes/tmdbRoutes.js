@@ -1,6 +1,7 @@
 // routes/tmdbRoutes.js
-const express = require("express");
-const axios = require("axios");
+import express from "express";
+import axios from "axios";
+
 const router = express.Router();
 
 const TMDB_API_KEY = "7f602bb21d9a23e77e110e48883aebf3"; // replace with your key
@@ -24,4 +25,4 @@ router.get("/genre/:id", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

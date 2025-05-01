@@ -1,8 +1,12 @@
-const express = require("express");
-const axios = require("axios");
+// routes/pesapal.js
+import express from "express";
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
+import dotenv from "dotenv";
+
+dotenv.config();
+
 const router = express.Router();
-const { v4: uuidv4 } = require("uuid");
-require("dotenv").config();
 
 const consumer_key = process.env.PESAPAL_CONSUMER_KEY;
 const consumer_secret = process.env.PESAPAL_CONSUMER_SECRET;
@@ -34,10 +38,10 @@ router.post("/subscribe", async (req, res) => {
     const order = {
       id: uuidv4(),
       currency: "UGX",
-      amount: "5000", // or your subscription price
+      amount: "5000",
       description: "MovieFlex Subscription",
       callback_url: callbackUrl,
-      notification_id: "", // Optional for webhook
+      notification_id: "", // Optional
       billing_address: {
         email_address: req.body.email,
         phone_number: req.body.phone,
@@ -62,7 +66,7 @@ router.post("/subscribe", async (req, res) => {
       }
     );
 
-    res.status(200).json(response.data.redirect_url); // This is the payment link
+    res.status(200).json(response.data.redirect_url);
 
   } catch (error) {
     console.error("PesaPal Error:", error);
@@ -70,4 +74,4 @@ router.post("/subscribe", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
