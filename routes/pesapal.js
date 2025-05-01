@@ -33,7 +33,7 @@ router.post("/subscribe", async (req, res) => {
     const token = await getAccessToken();
     access_token = token;
 
-    const callbackUrl = "http://localhost:3000/payment-confirmation"; // update to your frontend
+    const callbackUrl = "https://movieflex-frontend-1v9k.vercel.app//payment-confirmation"; // update to your frontend
 
     const order = {
       id: uuidv4(),
