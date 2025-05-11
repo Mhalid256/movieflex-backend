@@ -7,6 +7,87 @@ import tmdbRoutes from "./routes/tmdbRoutes.js";
 import pesapalRoutes from "./routes/pesapal.js";
 import pesapalWebhookRoutes from "./routes/pesapalWebhook.js";
 
+// Add to server.js
+import NodeCache from "node-cache";
+
+// Add to server.js
+import winston from "winston";
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  logger.error(`${err.status || 500} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
+  res.status(err.status || 500).json({
+    error: {
+      message: err.message
+    }
+  });
+});
+
+// Update server.js
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS.split(','),
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+const cache = new NodeCache({ stdTTL: 300 }); // 5 minutes TTL
+
+// Example middleware for caching TMDB responses
+const cacheMiddleware = (req, res, next) => {
+  const key = req.originalUrl;
+  const cachedResponse = cache.get(key);
+  
+  if (cachedResponse) {
+    return res.json(cachedResponse);
+  }
+  
+  res.originalSend = res.json;
+  res.json = (body) => {
+    cache.set(key, body);
+    res.originalSend(body);
+  };
+  next();
+};
+
+// Apply to TMDB routes
+app.use("/api/movies", cacheMiddleware);
+
+
+
+// Update App.js with lazy loading
+import React, { lazy, Suspense } from "react";
+
+const Login = lazy(() => import("./pages/Login"));
+const Netflix = lazy(() => import("./pages/Netflix"));
+// ... other imports
+
+export default function App() {
+  return (
+    <Router>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Routes>
+          <Route exact path="/login" element={<Login />} />
+          {/* Other routes */}
+        </Routes>
+      </Suspense>
+    </Router>
+  );
+}
+
 // Load env variables
 dotenv.config();
 
@@ -50,22 +131,35 @@ app.use("/api", movieRoutes);
 app.use("/api/movies", tmdbRoutes);
 app.use("/api/payments", pesapalRoutes);
 
+// Add to server.js
+import rateLimit from "express-rate-limit";
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests, please try again later"
+});
+
+// Apply to routes that need protection
+app.use("/api/payments/", apiLimiter);
+
 // MongoDB Connection
-mongoose
-  .connect(
-    "mongodb+srv://techmhalid:Mhalid%40256@netflix.djsruak.mongodb.net/Netflix?retryWrites=true&w=majority&appName=Netflix",
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverApi: { version: "1", strict: true, deprecationErrors: true },
-    }
-  )
-  .then(() => {
-    console.log("✅ DB Connection Successful");
+// Add to server.js
+const connectWithRetry = () => {
+  mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    maxPoolSize: 100,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
   })
-  .catch((err) => {
-    console.error("❌ MongoDB Error:", err.message);
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch(err => {
+    console.error("❌ MongoDB connection error:", err);
+    setTimeout(connectWithRetry, 5000);
   });
+};
+connectWithRetry();
 
 // Root route
 app.get("/", (req, res) => {
