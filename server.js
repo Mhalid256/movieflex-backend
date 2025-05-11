@@ -68,26 +68,6 @@ app.use("/api/movies", cacheMiddleware);
 
 
 
-// Update App.js with lazy loading
-import React, { lazy, Suspense } from "react";
-
-const Login = lazy(() => import("./pages/Login"));
-const Netflix = lazy(() => import("./pages/Netflix"));
-// ... other imports
-
-export default function App() {
-  return (
-    <Router>
-      <Suspense fallback={<div>Loading...</div>}>
-        <Routes>
-          <Route exact path="/login" element={<Login />} />
-          {/* Other routes */}
-        </Routes>
-      </Suspense>
-    </Router>
-  );
-}
-
 // Load env variables
 dotenv.config();
 
