@@ -1,4 +1,6 @@
 import express from "express";
+const app = express(); // ✅ Declared early to avoid ReferenceError
+
 import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -6,55 +8,48 @@ import movieRoutes from "./routes/movies.js";
 import tmdbRoutes from "./routes/tmdbRoutes.js";
 import pesapalRoutes from "./routes/pesapal.js";
 import pesapalWebhookRoutes from "./routes/pesapalWebhook.js";
-
-// Add to server.js
+import rateLimit from "express-rate-limit";
 import NodeCache from "node-cache";
-
-// Add to server.js
 import winston from "winston";
 
+// Load env variables
+dotenv.config();
+
+// Logger setup
 const logger = winston.createLogger({
-  level: 'info',
+  level: "info",
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' })
+    new winston.transports.File({ filename: "error.log", level: "error" }),
+    new winston.transports.File({ filename: "combined.log" })
   ]
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error(`${err.status || 500} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message
-    }
-  });
-});
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-// Update server.js
+// CORS options (after dotenv loaded)
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS.split(','),
+  origin: process.env.ALLOWED_ORIGINS.split(","),
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 };
-
 app.use(cors(corsOptions));
 
+// Cache setup
 const cache = new NodeCache({ stdTTL: 300 }); // 5 minutes TTL
-
-// Example middleware for caching TMDB responses
 const cacheMiddleware = (req, res, next) => {
   const key = req.originalUrl;
   const cachedResponse = cache.get(key);
-  
+
   if (cachedResponse) {
     return res.json(cachedResponse);
   }
-  
+
   res.originalSend = res.json;
   res.json = (body) => {
     cache.set(key, body);
@@ -66,21 +61,21 @@ const cacheMiddleware = (req, res, next) => {
 // Apply to TMDB routes
 app.use("/api/movies", cacheMiddleware);
 
-
-
-// Load env variables
-dotenv.config();
-
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Webhook route
+// API Routes
 app.use("/api/pesapal-webhook", pesapalWebhookRoutes);
+app.use("/api", movieRoutes);
+app.use("/api/movies", tmdbRoutes);
+app.use("/api/payments", pesapalRoutes);
 
-// Subscription payment endpoint
+// Rate limiter for payment routes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: "Too many requests, please try again later"
+});
+app.use("/api/payments/", apiLimiter);
+
+// Subscription endpoint
 app.post("/api/payments/subscribe", async (req, res) => {
   try {
     const { amount, description, email, phoneNumber, firstName, lastName } = req.body;
@@ -106,25 +101,7 @@ app.post("/api/payments/subscribe", async (req, res) => {
   }
 });
 
-// API Routes
-app.use("/api", movieRoutes);
-app.use("/api/movies", tmdbRoutes);
-app.use("/api/payments", pesapalRoutes);
-
-// Add to server.js
-import rateLimit from "express-rate-limit";
-
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: "Too many requests, please try again later"
-});
-
-// Apply to routes that need protection
-app.use("/api/payments/", apiLimiter);
-
-// MongoDB Connection
-// Add to server.js
+// MongoDB connection with retry logic
 const connectWithRetry = () => {
   mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
@@ -133,17 +110,27 @@ const connectWithRetry = () => {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   })
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => {
-    console.error("❌ MongoDB connection error:", err);
-    setTimeout(connectWithRetry, 5000);
-  });
+    .then(() => console.log("✅ MongoDB connected"))
+    .catch(err => {
+      console.error("❌ MongoDB connection error:", err);
+      setTimeout(connectWithRetry, 5000);
+    });
 };
 connectWithRetry();
 
 // Root route
 app.get("/", (req, res) => {
   res.send("API is working!");
+});
+
+// Error handling middleware (last)
+app.use((err, req, res, next) => {
+  logger.error(`${err.status || 500} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
+  res.status(err.status || 500).json({
+    error: {
+      message: err.message
+    }
+  });
 });
 
 // Start server
