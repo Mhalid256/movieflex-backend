@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -9,8 +9,9 @@ const userSchema = new mongoose.Schema({
   },
   likedMovies: Array,
 });
+
 // Add to UserModel.js
 userSchema.index({ email: 1 });
 userSchema.index({ referenceId: 1 });
 
-module.exports = mongoose.model("users", userSchema);
+export default mongoose.model("users", userSchema);

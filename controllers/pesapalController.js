@@ -1,6 +1,6 @@
 import axios from "axios";
 import dotenv from "dotenv";
-import User from "../models/User.js"; // Assuming you have a User model to update
+import User from "../models/UserModel.js"; // Assuming you have a User model to update
 import { calculateEndDate } from "../utils"; // Your utility for calculating the end date
 
 dotenv.config();
