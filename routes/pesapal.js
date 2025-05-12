@@ -15,16 +15,24 @@ let access_token = null;
 // Step 1: Get OAuth2 access token
 const getAccessToken = async () => {
   const auth = Buffer.from(`${consumer_key}:${consumer_secret}`).toString("base64");
-  const response = await axios.post(
-    "https://pay.pesapal.com/v3/api/Auth/RequestToken",
-    {},
-    {
-      headers: {
-        "Authorization": `Basic ${auth}`,
-      },
-    }
-  );
-  return response.data.token;
+
+  try {
+    const response = await axios.post(
+      "https://pay.pesapal.com/v3/api/Auth/RequestToken",
+      {},
+      {
+        headers: {
+          "Authorization": `Basic ${auth}`,
+        },
+      }
+    );
+
+    console.log("✅ Access Token retrieved:", response.data.token);
+    return response.data.token;
+  } catch (error) {
+    console.error("❌ Failed to get PesaPal access token:", error.response?.data || error.message);
+    throw new Error("Failed to authenticate with PesaPal");
+  }
 };
 
 // Step 2: Create Order
@@ -33,7 +41,7 @@ router.post("/subscribe", async (req, res) => {
     const token = await getAccessToken();
     access_token = token;
 
-    const callbackUrl = "https://movieflex-frontend-1v9k.vercel.app//payment-confirmation"; // update to your frontend
+    const callbackUrl = "https://movieflex-frontend-1v9k.vercel.app/payment-confirmation"; // fixed double slashes
 
     const order = {
       id: uuidv4(),
@@ -55,6 +63,8 @@ router.post("/subscribe", async (req, res) => {
       }
     };
 
+    console.log("🧾 Order being sent to PesaPal:", JSON.stringify(order, null, 2));
+
     const response = await axios.post(
       "https://pay.pesapal.com/v3/api/Transactions/SubmitOrderRequest",
       order,
@@ -66,10 +76,12 @@ router.post("/subscribe", async (req, res) => {
       }
     );
 
+    console.log("✅ PesaPal Response:", response.data);
+
     res.status(200).json(response.data.redirect_url);
 
   } catch (error) {
-    console.error("PesaPal Error:", error);
+    console.error("❌ PesaPal Error:", error.response?.data || error.message);
     res.status(500).json({ error: "Failed to initiate payment" });
   }
 });
