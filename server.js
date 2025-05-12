@@ -34,7 +34,8 @@ app.use(express.json());
 
 // CORS options (after dotenv loaded)
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS.split(","),
+  origin: (process.env.ALLOWED_ORIGINS || "").split(","),
+
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 };
